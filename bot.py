@@ -11,11 +11,20 @@ ADD, LOCATION, NAME, PHOTO = range(4)
 bot = telebot.TeleBot(TOKEN)
 
 USER_STATE = defaultdict(lambda: ADD)
+CALLBACK_DATA = defaultdict(lambda: {})
+STORAGE = defaultdict(lambda: {})
+
 def get_state(message):
     return USER_STATE[message.chat.id]
 
 def update_state(message, state):
     USER_STATE[message.chat.id] = state
+
+def get_storage(user_id):
+    return STORAGE[user_id]
+
+def update_storage(user_id, key, value):
+    STORAGE[user_id][key] = value
 
 @bot.message_handler(commands=['start'])
 def start_command(message):
@@ -32,34 +41,51 @@ def handle_add_command(message):
 @bot.message_handler(content_types=["location"], func=lambda message: get_state(message) == LOCATION)
 def handle_message(message):
     if message.location is not None:
-        print(message.location)
-        print("latitude: %s; longitude: %s" % (message.location.latitude, message.location.longitude))
-        r = api.query('[out:json];node[~"^(amenity|shop)$"~"."](around:200, {},{}); out;'.format(message.location.latitude, message.location.longitude))
-        keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+        update_storage(message.chat.id, 'current_location', str(message.location.latitude)+','+str(message.location.longitude))
+        r = api.query('[out:json];node[~"^(amenity|shop)$"~"."](around:200, {},{}); out;'.format(
+            message.location.latitude, message.location.longitude)
+        )
+        keyboard = types.InlineKeyboardMarkup(row_width=1)
         for n in r.nodes:
             g = geocoder.osm([n.lat, n.lon], method='reverse')
             if n.tags.get('name'):
-                button = types.KeyboardButton(text=n.tags.get('name') + '('+ g.address +')')
+                location = str(n.lat)+','+str(n.lon)
+                CALLBACK_DATA[message.chat.id][location] = {
+                    'name': n.tags.get('name'),
+                    'address': g.address
+                }
+                button = types.InlineKeyboardButton(
+                    text=n.tags.get('name')+'('+ g.address +')', 
+                    callback_data='location_'+location
+                )
                 keyboard.add(button)
+
+        bot.send_message(message.chat.id, 'Найдены точки интереса по близости либо введите сове название:', reply_markup=keyboard)
         update_state(message, NAME)
 
 @bot.message_handler(func=lambda message: get_state(message) == LOCATION)
 def handle_message(message):
-        update_state(message, NAME)
+    bot.send_message(message.chat.id, 'Введите название точки интереса:', reply_markup=types.ReplyKeyboardHide())
+    update_state(message, NAME)
 
 @bot.callback_query_handler(func=lambda query: query.data[:9]=='location_')
 def callback_query(query):
     location =  query.data[9:]
+    update_storage(query.message.chat.id, 'selected_location', location)
+    update_storage(query.message.chat.id, 'name', CALLBACK_DATA[query.message.chat.id][location]['name'])
     bot.send_message(query.message.chat.id, 'Пришли фотографию места:', reply_markup=types.ReplyKeyboardHide())
     update_state(query.message, PHOTO)
     
 @bot.message_handler(func=lambda message: get_state(message) == NAME)
 def handle_message(message):
+    update_storage(message.chat.id, 'selected_location', get_storage(message.chat.id)['current_location'])
+    update_storage(message.chat.id, 'name', message.text)
     bot.send_message(message.chat.id, 'Пришли фотографию места:', reply_markup=types.ReplyKeyboardHide())
     update_state(message, PHOTO)
 
 @bot.message_handler(content_types=["photo"], func=lambda message: get_state(message) == PHOTO)
 def handle_message(message):
+    update_storage(message.chat.id, 'photo', message.photo[0].file_id)
     bot.send_message(message.chat.id, 'Место сохранено!')
     update_state(message, ADD)
 
@@ -69,7 +95,16 @@ def handle_message(message):
 
 @bot.message_handler(commands=['list'])
 def handle_list_command(message):
-    bot.send_message(message.chat.id, 'Ты запустил комманду list – отображение добавленных мест!')
+    #bot.send_message(message.chat.id, 'Ты запустил комманду list – отображение добавленных мест!')
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    for k, v in get_storage(message.chat.id).items():
+        button = types.InlineKeyboardButton(
+            text = k+': '+v, 
+            callback_data = k
+        )
+        keyboard.add(button)
+
+    bot.send_message(message.chat.id, 'Твои сохраненные точки интереса:', reply_markup=keyboard)
 
 @bot.message_handler(commands=['reset'])
 def handle_reset_command(message):
