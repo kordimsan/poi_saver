@@ -3,10 +3,10 @@ import collections
 from datetime import datetime
 from pymongo import MongoClient
 
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
-BASEDIR = os.path.abspath(os.path.dirname(__file__))
-load_dotenv(os.path.join(BASEDIR, 'dev.env'))
+# BASEDIR = os.path.abspath(os.path.dirname(__file__))
+# load_dotenv(os.path.join(BASEDIR, 'dev.env'))
 
 class MongoDbContext:
     """Mongo database context class"""
