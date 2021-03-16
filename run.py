@@ -119,16 +119,16 @@ if __name__ == '__main__':
         telebot.logger.setLevel(logging.INFO)
 
         server = Flask(__name__)
-        @server.route("/bot", methods=['POST'])
+        @server.route('/' + TOKEN, methods=['POST'])
         def getMessage():
             bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
             return "!", 200
         @server.route("/")
         def webhook():
             bot.remove_webhook()
-            bot.set_webhook(url="https://poi-saver.herokuapp.com/bot") # этот url нужно заменить на url вашего Хероку приложения
+            bot.set_webhook(url="https://poi-saver.herokuapp.com/" + TOKEN)
             return "?", 200
-        server.run(host="0.0.0.0", port=os.environ.get('PORT', 80))
+        server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
     else:
         # если переменной окружения HEROKU нету, значит это запуск с машины разработчика.  
         # Удаляем вебхук на всякий случай, и запускаем с обычным поллингом.
