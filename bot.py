@@ -6,19 +6,15 @@ import overpy
 import geocoder
 api = overpy.Overpass()
 
+from db import MongoDbContext
+mongo = MongoDbContext()
+
 TOKEN = '1648079718:AAHgjkA0pVWro3tlObdSJ3yzjSOja3Yde7I'
 ADD, LOCATION, NAME, PHOTO = range(4)
 bot = telebot.TeleBot(TOKEN)
 
-USER_STATE = defaultdict(lambda: ADD)
 CALLBACK_DATA = defaultdict(lambda: {})
 STORAGE = defaultdict(lambda: {})
-
-def get_state(message):
-    return USER_STATE[message.chat.id]
-
-def update_state(message, state):
-    USER_STATE[message.chat.id] = state
 
 def get_storage(user_id):
     return STORAGE[user_id]
@@ -28,17 +24,18 @@ def update_storage(user_id, key, value):
 
 @bot.message_handler(commands=['start'])
 def start_command(message):
+    mongo.check_and_add_user(message)
     bot.send_message(message.chat.id, 'Привет, ты запустил бот который умеет сохранять твои точки интереса!')
 
-@bot.message_handler(commands=['add'], func=lambda message: get_state(message) == ADD)
+@bot.message_handler(commands=['add'], func=lambda message: mongo.get_state(message) == ADD)
 def handle_add_command(message):
     keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
     button_geo = types.KeyboardButton(text="Отправить местоположение", request_location=True)
     keyboard.add(button_geo)
     bot.send_message(message.chat.id, "Нажми на кнопку и передай мне свое местоположение", reply_markup=keyboard)
-    update_state(message, LOCATION)
+    mongo.set_state(message, LOCATION)
 
-@bot.message_handler(content_types=["location"], func=lambda message: get_state(message) == LOCATION)
+@bot.message_handler(content_types=["location"], func=lambda message: mongo.get_state(message) == LOCATION)
 def handle_message(message):
     if message.location is not None:
         update_storage(message.chat.id, 'current_location', str(message.location.latitude)+','+str(message.location.longitude))
@@ -61,12 +58,12 @@ def handle_message(message):
                 keyboard.add(button)
 
         bot.send_message(message.chat.id, 'Найдены точки интереса по близости либо введите сове название:', reply_markup=keyboard)
-        update_state(message, NAME)
+        mongo.set_state(message, NAME)
 
-@bot.message_handler(func=lambda message: get_state(message) == LOCATION)
+@bot.message_handler(func=lambda message: mongo.get_state(message) == LOCATION)
 def handle_message(message):
     bot.send_message(message.chat.id, 'Введите название точки интереса:', reply_markup=types.ReplyKeyboardHide())
-    update_state(message, NAME)
+    mongo.set_state(message, NAME)
 
 @bot.callback_query_handler(func=lambda query: query.data[:9]=='location_')
 def callback_query(query):
@@ -74,22 +71,22 @@ def callback_query(query):
     update_storage(query.message.chat.id, 'selected_location', location)
     update_storage(query.message.chat.id, 'name', CALLBACK_DATA[query.message.chat.id][location]['name'])
     bot.send_message(query.message.chat.id, 'Пришли фотографию места:', reply_markup=types.ReplyKeyboardHide())
-    update_state(query.message, PHOTO)
+    mongo.set_state(query.message, PHOTO)
     
-@bot.message_handler(func=lambda message: get_state(message) == NAME)
+@bot.message_handler(func=lambda message: mongo.get_state(message) == NAME)
 def handle_message(message):
     update_storage(message.chat.id, 'selected_location', get_storage(message.chat.id)['current_location'])
     update_storage(message.chat.id, 'name', message.text)
     bot.send_message(message.chat.id, 'Пришли фотографию места:', reply_markup=types.ReplyKeyboardHide())
-    update_state(message, PHOTO)
+    mongo.set_state(message, PHOTO)
 
-@bot.message_handler(content_types=["photo"], func=lambda message: get_state(message) == PHOTO)
+@bot.message_handler(content_types=["photo"], func=lambda message: mongo.get_state(message) == PHOTO)
 def handle_message(message):
     update_storage(message.chat.id, 'photo', message.photo[0].file_id)
     bot.send_message(message.chat.id, 'Место сохранено!')
-    update_state(message, ADD)
+    mongo.set_state(message, ADD)
 
-@bot.message_handler(func=lambda message: get_state(message) == PHOTO)
+@bot.message_handler(func=lambda message: mongo.get_state(message) == PHOTO)
 def handle_message(message):
     bot.send_message(message.chat.id, 'Ты прислал не фотографию, пришли фотографию места:')
 
