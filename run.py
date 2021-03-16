@@ -36,6 +36,24 @@ if __name__ == '__main__':
         bot.send_message(message.chat.id, "Нажми на кнопку и передай мне свое местоположение", reply_markup=keyboard)
         mongo.set_state(message, LOCATION)
 
+    @bot.message_handler(commands=['list'])
+    def handle_list_command(message):
+        #bot.send_message(message.chat.id, 'Ты запустил комманду list – отображение добавленных мест!')
+        keyboard = types.InlineKeyboardMarkup(row_width=1)
+        mongo.get_storage()
+        for v in mongo.get_storage():
+            button = types.InlineKeyboardButton(
+                text = v.get('name'), 
+                callback_data = str(v.get('_id'))
+            )
+            keyboard.add(button)
+
+        bot.send_message(message.chat.id, 'Твои сохраненные точки интереса:', reply_markup=keyboard)
+
+    @bot.message_handler(commands=['reset'])
+    def handle_reset_command(message):
+        bot.send_message(message.chat.id, 'Ты запустил комманду reset – удалить все его добавленные локации!')
+
     @bot.message_handler(content_types=["location"], func=lambda message: mongo.get_state(message) == LOCATION)
     def handle_message(message):
         if message.location is not None:
@@ -92,22 +110,6 @@ if __name__ == '__main__':
     def handle_message(message):
         bot.send_message(message.chat.id, 'Ты прислал не фотографию, пришли фотографию места:')
 
-    @bot.message_handler(commands=['list'])
-    def handle_list_command(message):
-        #bot.send_message(message.chat.id, 'Ты запустил комманду list – отображение добавленных мест!')
-        keyboard = types.InlineKeyboardMarkup(row_width=1)
-        mongo.get_storage()
-        for v in mongo.get_storage():
-            button = types.InlineKeyboardButton(
-                text = v.get('name'), 
-                callback_data = str(v.get('_id'))
-            )
-            keyboard.add(button)
-
-        bot.send_message(message.chat.id, 'Твои сохраненные точки интереса:', reply_markup=keyboard)
-
-    @bot.message_handler(commands=['reset'])
-    def handle_reset_command(message):
-        bot.send_message(message.chat.id, 'Ты запустил комманду reset – удалить все его добавленные локации!')
+    
 
     bot.polling()    
