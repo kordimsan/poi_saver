@@ -33,11 +33,25 @@ class MongoDbContext:
         user = self.db.users.find_one({'user_id': user_id})
         return user['state']
 
-
     def set_state(self, message, state_value):
         user_id = message.from_user.id
         self.db.users.update_one({'user_id': user_id}, {"$set": {'state': state_value}})
 
+    def get_storage(self):
+        storage = self.db.storage.find()
+        return storage
+
+    def set_storage(self, message, new_poi):
+        new_poi = {
+            'current_location': new_poi.get('current_location'),
+            'selected_location': new_poi.get('selected_location'),
+            'name': new_poi.get('name'),
+            'photo_id': new_poi.get('photo'),
+            'user_id': message.from_user.id,
+            'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        self.db.storage.insert_one(new_poi)
+        return
 
 
 if __name__ == '__main__':

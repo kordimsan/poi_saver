@@ -14,20 +14,19 @@ ADD, LOCATION, NAME, PHOTO = range(4)
 bot = telebot.TeleBot(TOKEN)
 
 CALLBACK_DATA = defaultdict(lambda: {})
-STORAGE = defaultdict(lambda: {})
 
-def get_storage(user_id):
-    return STORAGE[user_id]
+def get_callback_data(chat_id):
+    return CALLBACK_DATA[chat_id]
 
-def update_storage(user_id, key, value):
-    STORAGE[user_id][key] = value
+def set_callback_data(chat_id, key, value):
+    CALLBACK_DATA[chat_id][key] = value
 
 @bot.message_handler(commands=['start'])
 def start_command(message):
     mongo.check_and_add_user(message)
     bot.send_message(message.chat.id, 'Привет, ты запустил бот который умеет сохранять твои точки интереса!')
 
-@bot.message_handler(commands=['add'], func=lambda message: mongo.get_state(message) == ADD)
+@bot.message_handler(commands=['add'])
 def handle_add_command(message):
     keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
     button_geo = types.KeyboardButton(text="Отправить местоположение", request_location=True)
@@ -38,7 +37,7 @@ def handle_add_command(message):
 @bot.message_handler(content_types=["location"], func=lambda message: mongo.get_state(message) == LOCATION)
 def handle_message(message):
     if message.location is not None:
-        update_storage(message.chat.id, 'current_location', str(message.location.latitude)+','+str(message.location.longitude))
+        set_callback_data(message.chat.id, 'current_location', str(message.location.latitude)+','+str(message.location.longitude))
         r = api.query('[out:json];node[~"^(amenity|shop)$"~"."](around:200, {},{}); out;'.format(
             message.location.latitude, message.location.longitude)
         )
@@ -47,10 +46,10 @@ def handle_message(message):
             g = geocoder.osm([n.lat, n.lon], method='reverse')
             if n.tags.get('name'):
                 location = str(n.lat)+','+str(n.lon)
-                CALLBACK_DATA[message.chat.id][location] = {
+                set_callback_data(message.chat.id, location, {
                     'name': n.tags.get('name'),
                     'address': g.address
-                }
+                })
                 button = types.InlineKeyboardButton(
                     text=n.tags.get('name')+'('+ g.address +')', 
                     callback_data='location_'+location
@@ -68,23 +67,24 @@ def handle_message(message):
 @bot.callback_query_handler(func=lambda query: query.data[:9]=='location_')
 def callback_query(query):
     location =  query.data[9:]
-    update_storage(query.message.chat.id, 'selected_location', location)
-    update_storage(query.message.chat.id, 'name', CALLBACK_DATA[query.message.chat.id][location]['name'])
+    set_callback_data(query.message.chat.id, 'selected_location', location)
+    set_callback_data(query.message.chat.id, 'name', get_callback_data(query.message.chat.id).get(location,{'name':None})['name'])
+    mongo.set_state(query, PHOTO)
     bot.send_message(query.message.chat.id, 'Пришли фотографию места:', reply_markup=types.ReplyKeyboardHide())
-    mongo.set_state(query.message, PHOTO)
     
 @bot.message_handler(func=lambda message: mongo.get_state(message) == NAME)
 def handle_message(message):
-    update_storage(message.chat.id, 'selected_location', get_storage(message.chat.id)['current_location'])
-    update_storage(message.chat.id, 'name', message.text)
-    bot.send_message(message.chat.id, 'Пришли фотографию места:', reply_markup=types.ReplyKeyboardHide())
+    set_callback_data(message.chat.id, 'selected_location', get_callback_data(message.chat.id).get('current_location'))
+    set_callback_data(message.chat.id, 'name', message.text)
     mongo.set_state(message, PHOTO)
+    bot.send_message(message.chat.id, 'Пришли фотографию места:', reply_markup=types.ReplyKeyboardHide())
 
 @bot.message_handler(content_types=["photo"], func=lambda message: mongo.get_state(message) == PHOTO)
 def handle_message(message):
-    update_storage(message.chat.id, 'photo', message.photo[0].file_id)
-    bot.send_message(message.chat.id, 'Место сохранено!')
+    set_callback_data(message.chat.id, 'photo', message.photo[0].file_id)
+    mongo.set_storage(message, get_callback_data(message.chat.id))
     mongo.set_state(message, ADD)
+    bot.send_message(message.chat.id, 'Место сохранено!')
 
 @bot.message_handler(func=lambda message: mongo.get_state(message) == PHOTO)
 def handle_message(message):
@@ -94,10 +94,11 @@ def handle_message(message):
 def handle_list_command(message):
     #bot.send_message(message.chat.id, 'Ты запустил комманду list – отображение добавленных мест!')
     keyboard = types.InlineKeyboardMarkup(row_width=1)
-    for k, v in get_storage(message.chat.id).items():
+    mongo.get_storage()
+    for v in mongo.get_storage():
         button = types.InlineKeyboardButton(
-            text = k+': '+v, 
-            callback_data = k
+            text = v.get('name'), 
+            callback_data = str(v.get('_id'))
         )
         keyboard.add(button)
 
