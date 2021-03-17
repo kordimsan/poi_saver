@@ -45,8 +45,7 @@ if __name__ == '__main__':
         bot.send_chat_action(message.chat.id, 'typing')
         #bot.send_message(message.chat.id, 'Ты запустил комманду list – отображение добавленных мест!')
         keyboard = types.InlineKeyboardMarkup(row_width=1)
-        mongo.get_storage()
-        for v in mongo.get_storage():
+        for v in mongo.get_storage(message):
             button = types.InlineKeyboardButton(
                 text = v.get('name'), 
                 callback_data = str(v.get('_id'))
