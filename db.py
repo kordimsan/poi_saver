@@ -37,8 +37,9 @@ class MongoDbContext:
         user_id = message.from_user.id
         self.db.users.update_one({'user_id': user_id}, {"$set": {'state': state_value}})
 
-    def get_storage(self):
-        storage = self.db.storage.find()
+    def get_storage(self, message):
+        user_id = message.from_user.id
+        storage = self.db.storage.find({'user_id': user_id})
         return storage
 
     def set_storage(self, message, new_poi):
