@@ -11,7 +11,7 @@ api = overpy.Overpass()
 from db import MongoDbContext
 mongo = MongoDbContext()
 
-TOKEN = '1648079718:AAHgjkA0pVWro3tlObdSJ3yzjSOja3Yde7I'
+TOKEN = os.getenv('TOKEN')
 ADD, LOCATION, NAME, PHOTO = range(4)
 bot = telebot.TeleBot(TOKEN)
 
