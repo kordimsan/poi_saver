@@ -57,7 +57,8 @@ if __name__ == '__main__':
     @bot.message_handler(commands=['reset'])
     def handle_reset_command(message):
         bot.send_chat_action(message.chat.id, 'typing')
-        bot.send_message(message.chat.id, 'Ты запустил комманду reset – удалить все его добавленные локации!')
+        mongo.drop_storage(message)
+        bot.send_message(message.chat.id, 'Ты запустил комманду reset – удалить все добавленные локации!')
 
     @bot.message_handler(content_types=["location"], func=lambda message: mongo.get_state(message) == LOCATION)
     def handle_message(message):

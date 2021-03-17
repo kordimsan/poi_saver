@@ -54,6 +54,10 @@ class MongoDbContext:
         self.db.storage.insert_one(new_poi)
         return
 
+    def drop_storage(self, message):
+        user_id = message.from_user.id
+        storage = self.db.storage.remove({'user_id': user_id})
+        return storage
 
 if __name__ == '__main__':
     cols = ['id', 'first_name', 'last_name']
