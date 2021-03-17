@@ -37,8 +37,8 @@ if __name__ == '__main__':
         keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
         button_geo = types.KeyboardButton(text="Отправить местоположение", request_location=True)
         keyboard.add(button_geo)
-        bot.send_message(message.chat.id, "Нажми на кнопку и передай мне свое местоположение", reply_markup=keyboard)
         mongo.set_state(message, LOCATION)
+        bot.send_message(message.chat.id, "Нажми на кнопку и передай мне свое местоположение", reply_markup=keyboard)
 
     @bot.message_handler(commands=['list'])
     def handle_list_command(message):
@@ -83,14 +83,14 @@ if __name__ == '__main__':
                     )
                     keyboard.add(button)
 
-            bot.send_message(message.chat.id, 'Найдены точки интереса по близости либо введите сове название:', reply_markup=keyboard)
             mongo.set_state(message, NAME)
+            bot.send_message(message.chat.id, 'Найдены точки интереса по близости либо введите сове название:', reply_markup=keyboard)
 
     @bot.message_handler(func=lambda message: mongo.get_state(message) == LOCATION)
     def handle_message(message):
         bot.send_chat_action(message.chat.id, 'typing')
-        bot.send_message(message.chat.id, 'Введите название точки интереса:', reply_markup=types.ReplyKeyboardHide())
         mongo.set_state(message, NAME)
+        bot.send_message(message.chat.id, 'Введите название точки интереса:', reply_markup=types.ReplyKeyboardHide())
 
     @bot.callback_query_handler(func=lambda query: query.data[:9]=='location_')
     def callback_query(query):
