@@ -27,11 +27,13 @@ if __name__ == '__main__':
 
     @bot.message_handler(commands=['start'])
     def start_command(message):
+        bot.send_chat_action(message.chat.id, 'typing')
         mongo.check_and_add_user(message)
         bot.send_message(message.chat.id, 'Привет, ты запустил бот который умеет сохранять твои точки интереса!')
 
     @bot.message_handler(commands=['add'])
     def handle_add_command(message):
+        bot.send_chat_action(message.chat.id, 'typing')
         keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
         button_geo = types.KeyboardButton(text="Отправить местоположение", request_location=True)
         keyboard.add(button_geo)
@@ -40,6 +42,7 @@ if __name__ == '__main__':
 
     @bot.message_handler(commands=['list'])
     def handle_list_command(message):
+        bot.send_chat_action(message.chat.id, 'typing')
         #bot.send_message(message.chat.id, 'Ты запустил комманду list – отображение добавленных мест!')
         keyboard = types.InlineKeyboardMarkup(row_width=1)
         mongo.get_storage()
@@ -54,11 +57,13 @@ if __name__ == '__main__':
 
     @bot.message_handler(commands=['reset'])
     def handle_reset_command(message):
+        bot.send_chat_action(message.chat.id, 'typing')
         bot.send_message(message.chat.id, 'Ты запустил комманду reset – удалить все его добавленные локации!')
 
     @bot.message_handler(content_types=["location"], func=lambda message: mongo.get_state(message) == LOCATION)
     def handle_message(message):
         if message.location is not None:
+            bot.send_chat_action(message.chat.id, 'typing')
             set_callback_data(message.chat.id, 'current_location', str(message.location.latitude)+','+str(message.location.longitude))
             r = api.query('[out:json];node[~"^(amenity|shop)$"~"."](around:200, {},{}); out;'.format(
                 message.location.latitude, message.location.longitude)
@@ -83,11 +88,13 @@ if __name__ == '__main__':
 
     @bot.message_handler(func=lambda message: mongo.get_state(message) == LOCATION)
     def handle_message(message):
+        bot.send_chat_action(message.chat.id, 'typing')
         bot.send_message(message.chat.id, 'Введите название точки интереса:', reply_markup=types.ReplyKeyboardHide())
         mongo.set_state(message, NAME)
 
     @bot.callback_query_handler(func=lambda query: query.data[:9]=='location_')
     def callback_query(query):
+        bot.send_chat_action(query.message.chat.id, 'typing')
         location =  query.data[9:]
         set_callback_data(query.message.chat.id, 'selected_location', location)
         set_callback_data(query.message.chat.id, 'name', get_callback_data(query.message.chat.id).get(location,{'name':None})['name'])
@@ -96,6 +103,7 @@ if __name__ == '__main__':
         
     @bot.message_handler(func=lambda message: mongo.get_state(message) == NAME)
     def handle_message(message):
+        bot.send_chat_action(message.chat.id, 'typing')
         set_callback_data(message.chat.id, 'selected_location', get_callback_data(message.chat.id).get('current_location'))
         set_callback_data(message.chat.id, 'name', message.text)
         mongo.set_state(message, PHOTO)
@@ -103,6 +111,7 @@ if __name__ == '__main__':
 
     @bot.message_handler(content_types=["photo"], func=lambda message: mongo.get_state(message) == PHOTO)
     def handle_message(message):
+        bot.send_chat_action(message.chat.id, 'typing')
         set_callback_data(message.chat.id, 'photo', message.photo[0].file_id)
         mongo.set_storage(message, get_callback_data(message.chat.id))
         mongo.set_state(message, ADD)
@@ -110,6 +119,7 @@ if __name__ == '__main__':
 
     @bot.message_handler(func=lambda message: mongo.get_state(message) == PHOTO)
     def handle_message(message):
+        bot.send_chat_action(message.chat.id, 'typing')
         bot.send_message(message.chat.id, 'Ты прислал не фотографию, пришли фотографию места:')
 
     
